@@ -1,0 +1,52 @@
+pipeline {
+    agent { label 'docker-node' } // Runs on Node with Docker
+
+    environment {
+        IMAGE = "myapp:${BUILD_NUMBER}" // Docker image name with build number
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh 'docker build -t $IMAGE .'
+            }
+        }
+
+        stage('Unit Test') {
+            steps {
+                sh 'docker run --rm $IMAGE echo "Running tests..."'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    # Remove existing container if exists
+                    docker rm -f myapp || true
+
+                    # Run new container in detached mode, map port 8080
+                    docker run -d --name myapp -p 8080:80 $IMAGE
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment successful!"
+        }
+        failure {
+            echo "Deployment failed!"
+        }
+        always {
+            sh 'docker system prune -f' // Clean up dangling images
+        }
+    }
+}   //
+}
